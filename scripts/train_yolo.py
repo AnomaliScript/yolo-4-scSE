@@ -1,215 +1,197 @@
 """
-Step 2: Train YOLOv8 Vertebra Detector
-======================================
+Train YOLOv8 Vertebra Detector
+Uses auto-generated YOLO annotations from segmentation labels
 
-Trains YOLOv8 on your annotated 2D slices.
+REQUIREMENTS:
+- Run auto_convert_to_yolo.py FIRST to create YOLO dataset
+- Install: pip install ultralytics
 
 Author: Brandon's Cervical Spine Project
-Date: 2024-11-19
+Date: 2024-11-20
 """
 
 from ultralytics import YOLO
 from pathlib import Path
-import yaml
 
 
-def create_dataset_yaml(output_path):
-    """
-    Create YOLOv8 dataset configuration file.
+def train_vertebra_detector():
+    """Train YOLOv8 on auto-converted vertebra annotations"""
     
-    YOLOv8 expects a data.yaml file that specifies:
-    - Path to training images
-    - Path to validation images  
-    - Number of classes
-    - Class names
-    """
+    # ========== PATHS (should match auto_convert_to_yolo.py) ==========
+    YOLO_DATA_DIR = Path(r"C:\Users\anoma\Downloads\yolo-4-scSE")
+    DATA_YAML = YOLO_DATA_DIR / "data.yaml"
+    OUTPUT_DIR = YOLO_DATA_DIR / "runs"
+    # ==================================================================
     
-    # ========== UPDATE THESE PATHS ==========
-    BASE_DIR = r"C:\Users\anoma\Downloads\cervical-yolo\data"
-    # ========================================
+    print(f"\n{'='*70}")
+    print(f"YOLOV8 VERTEBRA DETECTOR TRAINING")
+    print(f"{'='*70}")
     
-    config = {
-        'path': BASE_DIR,  # Dataset root
-        'train': 'images/train',  # Training images (relative to 'path')
-        'val': 'images/val',      # Validation images (relative to 'path')
-        
-        # Number of classes
-        'nc': 7,
-        
-        # Class names (must match your LabelImg annotations)
-        'names': ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
-    }
+    # Check if data.yaml exists (created by auto_convert_to_yolo.py)
+    if not DATA_YAML.exists():
+        print(f"\n❌ ERROR: {DATA_YAML} not found!")
+        print(f"\nYou need to run auto_convert_to_yolo.py first!")
+        print(f"That script creates:")
+        print(f"  - {YOLO_DATA_DIR / 'images'}")
+        print(f"  - {YOLO_DATA_DIR / 'labels'}")
+        print(f"  - {DATA_YAML}")
+        return
     
-    with open(output_path, 'w') as f:
-        yaml.dump(config, f, default_flow_style=False)
+    # Check for training data
+    train_images = YOLO_DATA_DIR / "images" / "train"
+    train_labels = YOLO_DATA_DIR / "labels" / "train"
     
-    print(f"✓ Created dataset config: {output_path}")
-    return output_path
-
-
-def train_yolo_detector(data_yaml, output_dir, epochs=500):
-    """
-    Train YOLOv8 detector.
+    if not train_images.exists() or not train_labels.exists():
+        print(f"\n❌ ERROR: Training data not found!")
+        print(f"Expected:")
+        print(f"  {train_images}")
+        print(f"  {train_labels}")
+        print(f"\nRun auto_convert_to_yolo.py first!")
+        return
     
-    Args:
-        data_yaml: Path to data.yaml config file
-        output_dir: Where to save training results
-        epochs: Number of training epochs (SpineCLUE used 500)
-    """
+    num_images = len(list(train_images.glob("*.jpg")))
+    num_labels = len(list(train_labels.glob("*.txt")))
     
-    print("\n" + "="*70)
-    print("TRAINING YOLOV8 VERTEBRA DETECTOR")
-    print("="*70)
+    print(f"\n✓ Dataset found:")
+    print(f"  Training images: {num_images}")
+    print(f"  Training labels: {num_labels}")
+    print(f"  Data config: {DATA_YAML}")
+    
+    if num_images == 0 or num_labels == 0:
+        print(f"\n❌ No training data! Run auto_convert_to_yolo.py")
+        return
+    
+    if num_images != num_labels:
+        print(f"\n⚠️  Warning: Image count != Label count")
+        print(f"   Some images may not have annotations (okay if filtering was applied)")
     
     # Load pretrained YOLOv8x model
-    # 'x' = extra large model (most accurate, slower)
-    # Other options: yolov8n.pt (nano), yolov8s.pt (small), yolov8m.pt (medium), yolov8l.pt (large)
-    print("\nLoading YOLOv8x pretrained weights...")
+    print(f"\n{'='*70}")
+    print("LOADING PRETRAINED MODEL")
+    print(f"{'='*70}")
+    print("Downloading YOLOv8x COCO weights (if not cached)...")
+    
     model = YOLO('yolov8x.pt')
     
-    print(f"\nStarting training:")
-    print(f"  Epochs: {epochs}")
-    print(f"  Data config: {data_yaml}")
-    print(f"  Output: {output_dir}")
-    print(f"  GPU: {'Available' if model.device.type == 'cuda' else 'Not available (will use CPU)'}")
+    print("✓ Model loaded")
+    print(f"  Device: {model.device}")
     
-    # Train
-    results = model.train(
-        data=data_yaml,
-        epochs=epochs,
-        imgsz=640,              # Image size (640x640)
-        batch=16,               # Batch size (adjust based on your GPU memory)
-        device=0,               # GPU device (0 = first GPU, 'cpu' for CPU)
-        workers=8,              # Number of data loading workers
-        project=output_dir,     # Where to save results
-        name='vertebra_detector',
+    # Training configuration
+    print(f"\n{'='*70}")
+    print("TRAINING CONFIGURATION")
+    print(f"{'='*70}")
+    
+    EPOCHS = 300  # Can reduce to 100 for testing
+    BATCH_SIZE = 8  # Adjust based on GPU memory (64 if you have 24GB+ GPU)
+    IMG_SIZE = 640
+    
+    print(f"  Epochs: {EPOCHS}")
+    print(f"  Batch size: {BATCH_SIZE}")
+    print(f"  Image size: {IMG_SIZE}x{IMG_SIZE}")
+    print(f"  Learning rate: 0.001 (initial)")
+    print(f"  Optimizer: Adam")
+    
+    # Start training
+    print(f"\n{'='*70}")
+    print("STARTING TRAINING")
+    print(f"{'='*70}")
+    print("This will take several hours...")
+    print("Press Ctrl+C to stop early (model will save current progress)\n")
+    
+    try:
+        results = model.train(
+            data=str(DATA_YAML),
+            epochs=EPOCHS,
+            imgsz=IMG_SIZE,
+            batch=BATCH_SIZE,
+            device=0,  # GPU 0 (use 'cpu' if no GPU)
+            workers=8,
+            project=str(OUTPUT_DIR),
+            name='vertebra_detector',
+            
+            # Learning
+            lr0=0.001,
+            optimizer='Adam',
+            patience=50,  # Early stopping
+            
+            # Medical image augmentation (conservative)
+            hsv_h=0.01,      # Minimal hue variation
+            hsv_s=0.3,       # Moderate saturation
+            hsv_v=0.2,       # Moderate value
+            degrees=5.0,     # Small rotation only
+            translate=0.05,  # Minimal translation
+            scale=0.3,       # Moderate scaling
+            fliplr=0.0,      # NO left-right flip (spine is asymmetric!)
+            flipud=0.0,      # NO up-down flip
+            
+            # Saving
+            save=True,
+            save_period=50,  # Save checkpoint every 50 epochs
+            
+            # Display
+            verbose=True,
+            plots=True,  # Generate training plots
+        )
         
-        # Training hyperparameters (SpineCLUE settings)
-        lr0=0.001,              # Initial learning rate
-        patience=50,            # Early stopping patience
+        print(f"\n{'='*70}")
+        print("TRAINING COMPLETE")
+        print(f"{'='*70}")
         
-        # Data augmentation
-        hsv_h=0.015,            # HSV-Hue augmentation
-        hsv_s=0.7,              # HSV-Saturation
-        hsv_v=0.4,              # HSV-Value
-        degrees=10.0,           # Rotation (+/- degrees)
-        translate=0.1,          # Translation (+/- fraction)
-        scale=0.5,              # Scale (+/- gain)
-        fliplr=0.5,             # Flip left-right probability
+        best_weights = OUTPUT_DIR / "vertebra_detector" / "weights" / "best.pt"
+        last_weights = OUTPUT_DIR / "vertebra_detector" / "weights" / "last.pt"
         
-        # Model settings
-        pretrained=True,
-        optimizer='Adam',
-        verbose=True,
+        print(f"\n✓ Model saved:")
+        print(f"  Best weights: {best_weights}")
+        print(f"  Last weights: {last_weights}")
+        print(f"\n✓ Training plots saved:")
+        print(f"  {OUTPUT_DIR / 'vertebra_detector'}")
         
-        # Save settings
-        save=True,
-        save_period=50,         # Save checkpoint every N epochs
-    )
-    
-    print("\n" + "="*70)
-    print("TRAINING COMPLETE")
-    print("="*70)
-    print(f"Results saved to: {output_dir}/vertebra_detector")
-    print(f"Best weights: {output_dir}/vertebra_detector/weights/best.pt")
-    print("="*70)
-    
-    return results
-
-
-def validate_model(weights_path, data_yaml):
-    """
-    Validate trained model on validation set.
-    
-    Args:
-        weights_path: Path to best.pt weights
-        data_yaml: Path to data.yaml
-    """
-    print("\n" + "="*70)
-    print("VALIDATING MODEL")
-    print("="*70)
-    
-    model = YOLO(weights_path)
-    results = model.val(data=data_yaml)
-    
-    print("\nValidation Results:")
-    print(f"  mAP50: {results.box.map50:.4f}")
-    print(f"  mAP50-95: {results.box.map:.4f}")
-    print(f"  Precision: {results.box.mp:.4f}")
-    print(f"  Recall: {results.box.mr:.4f}")
-    
-    return results
+        # Validation
+        print(f"\n{'='*70}")
+        print("RUNNING VALIDATION")
+        print(f"{'='*70}")
+        
+        val_results = model.val(data=str(DATA_YAML))
+        
+        print(f"\nValidation Metrics:")
+        print(f"  mAP50: {val_results.box.map50:.4f}")
+        print(f"  mAP50-95: {val_results.box.map:.4f}")
+        print(f"  Precision: {val_results.box.mp:.4f}")
+        print(f"  Recall: {val_results.box.mr:.4f}")
+        
+        print(f"\n{'='*70}")
+        print("NEXT STEPS")
+        print(f"{'='*70}")
+        print(f"1. Check training plots in:")
+        print(f"   {OUTPUT_DIR / 'vertebra_detector'}")
+        print(f"\n2. Test detector on a few images:")
+        print(f"   from ultralytics import YOLO")
+        print(f"   model = YOLO('{best_weights}')")
+        print(f"   results = model('path/to/test/image.jpg')")
+        print(f"   results[0].show()")
+        print(f"\n3. Integrate detector into nnUNet attention module")
+        print(f"{'='*70}")
+        
+    except KeyboardInterrupt:
+        print(f"\n\n⚠️  Training interrupted!")
+        print(f"Latest weights saved to:")
+        print(f"  {OUTPUT_DIR / 'vertebra_detector' / 'weights' / 'last.pt'}")
+        print(f"\nYou can resume training later or use these weights.")
 
 
 def main():
-    """Main training workflow"""
-    
-    # ========== UPDATE THESE PATHS ==========
-    DATA_DIR = r"C:\Users\anoma\Downloads\cervical-yolo\data"
-    OUTPUT_DIR = r"C:\Users\anoma\Downloads\cervical-yolo\runs"
-    # ========================================
-    
-    # Create dataset config
-    data_yaml = Path(DATA_DIR) / "data.yaml"
-    create_dataset_yaml(data_yaml)
-    
-    # Check if annotations exist
-    train_labels = Path(DATA_DIR) / "labels" / "train"
-    if not train_labels.exists() or not list(train_labels.glob("*.txt")):
-        print("\n❌ ERROR: No annotations found!")
-        print(f"   Expected location: {train_labels}")
-        print("\n📋 YOU NEED TO ANNOTATE IMAGES FIRST:")
-        print("   1. Download LabelImg: https://github.com/HumanSignal/labelImg")
-        print("   2. Open LabelImg")
-        print("   3. Click 'Open Dir' → select data/images/train")
-        print("   4. Click 'Change Save Dir' → select data/labels/train")
-        print("   5. Set format to 'YOLO' (not PascalVOC)")
-        print("   6. Draw boxes around vertebrae, label as C1-C7")
-        print("   7. Save (Ctrl+S) and move to next image (D key)")
-        print("\n   Annotate at least 400 images (mix of sagittal and coronal)")
-        return
-    
-    num_annotations = len(list(train_labels.glob("*.txt")))
-    print(f"\n✓ Found {num_annotations} annotated images")
-    
-    if num_annotations < 100:
-        print("\n⚠️  WARNING: Only {num_annotations} annotations found.")
-        print("   SpineCLUE used ~8000 images. Recommend at least 400 for good results.")
-        response = input("   Continue anyway? (y/n): ")
-        if response.lower() != 'y':
-            return
-    
-    # Train model
-    print("\nStarting training (this will take several hours)...")
-    train_yolo_detector(
-        data_yaml=str(data_yaml),
-        output_dir=OUTPUT_DIR,
-        epochs=500  # Can reduce to 100 for faster testing
-    )
-    
-    # Validate
-    best_weights = Path(OUTPUT_DIR) / "vertebra_detector" / "weights" / "best.pt"
-    if best_weights.exists():
-        validate_model(str(best_weights), str(data_yaml))
-    
-    print("\n✅ TRAINING COMPLETE!")
-    print(f"\n📦 Trained model saved at:")
-    print(f"   {best_weights}")
-    print(f"\n📊 Training metrics and graphs:")
-    print(f"   {OUTPUT_DIR}/vertebra_detector/")
-    print(f"\n🎯 NEXT STEP: Run detection on all 426 cases")
-    print(f"   python 02_run_detection.py")
-
-
-if __name__ == "__main__":
     # Check if ultralytics is installed
     try:
         from ultralytics import YOLO
-        print("✓ ultralytics package found")
     except ImportError:
-        print("❌ ultralytics not installed!")
-        print("\nInstall with: pip install ultralytics")
-        print("Then run this script again.")
-        exit(1)
+        print("\n❌ ultralytics package not found!")
+        print("\nInstall with:")
+        print("  pip install ultralytics")
+        print("\nThen run this script again.")
+        return
     
+    train_vertebra_detector()
+
+
+if __name__ == "__main__":
     main()

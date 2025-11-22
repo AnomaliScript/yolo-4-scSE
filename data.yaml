@@ -1,0 +1,4 @@
+train: C:\Users\anoma\Downloads\yolo-4-scSE\images\train
+val: C:\Users\anoma\Downloads\yolo-4-scSE\images\val
+nc: 7
+names: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']

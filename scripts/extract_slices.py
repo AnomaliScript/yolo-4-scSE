@@ -167,8 +167,8 @@ def main():
     """
     
     # ========== UPDATE THESE PATHS ==========
-    IMAGES_DIR = r"C:\Users\anoma\Downloads\spine-segmentation-data-cleaning\v3\imagesTr"
-    OUTPUT_DIR = r"C:\Users\anoma\Downloads\cervical-yolo\data\images\train"
+    IMAGES_DIR = r"C:\\Users\\anoma\\Downloads\\spine-segmentation-data-cleaning\\v3\\imagesTr"
+    OUTPUT_DIR = r"C:\\Users\\anoma\\Downloads\\yolo-4-scse\\data\\images\\train"
     
     # Select cases to extract slices from
     # SpineCLUE used 20 cases - select full-spine cases (C1-C7)

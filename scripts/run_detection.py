@@ -279,9 +279,9 @@ def main():
     """Run detection on all 426 cases"""
     
     # ========== UPDATE THESE PATHS ==========
-    MODEL_WEIGHTS = r"C:\Users\anoma\Downloads\cervical-yolo\runs\vertebra_detector\weights\best.pt"
-    IMAGES_DIR = r"C:\Users\anoma\Downloads\spine-segmentation-data-cleaning\v3\imagesTr"
-    OUTPUT_DIR = r"C:\Users\anoma\Downloads\cervical-yolo\outputs\detections"
+    MODEL_WEIGHTS = r"C:\\Users\\anoma\\Downloads\\yolo-4-scse\\runs\\vertebra_detector\\weights\\best.pt"
+    IMAGES_DIR = r"C:\\Users\\anoma\\Downloads\\spine-segmentation-data-cleaning\\v3\\imagesTr"
+    OUTPUT_DIR = r"C:\\Users\\anoma\\Downloads\\yolo-4-scse\\outputs\\detections"
     # ========================================
     
     print("="*70)
